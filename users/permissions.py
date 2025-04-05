@@ -15,3 +15,11 @@ class IsAdmin(BasePermission):
 
     def has_permission(self, request, view):
         return bool(request.user.role == 'admin')
+
+class IsPremuim(BasePermission):
+    """
+    Allows access only to Premium users.
+    """
+
+    def has_permission(self, request, view):
+        return bool(request.user.is_premium)

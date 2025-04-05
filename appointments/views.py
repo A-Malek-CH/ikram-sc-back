@@ -74,7 +74,7 @@ class FilteredAppointmentsView(APIView):
         if appointment_type:
             filters['type'] = appointment_type
         
-        appointments = Appointment.objects.filter(**filters).values('state', 'creation_date')
+        appointments = Appointment.objects.filter(**filters).values('state', 'creation_date', 'appointment_date')
         return Response(appointments, status=status.HTTP_200_OK)
 
 
@@ -163,4 +163,4 @@ class MarkMissedAppointmentView(APIView):
             appointment.state = 'M'
             appointment.save()
             return Response({'message': 'Appointment marked as missed'}, status=status.HTTP_200_OK)
-        return Response({'error': 'Only accepted appointments can be marked as missed'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Only accepted appointments can be marked as missed'}, status=status.HTTP_400_BAD_REQUEST)    

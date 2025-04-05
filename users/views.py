@@ -5,8 +5,10 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from django.http import HttpResponse
 from django.conf import settings
 from rest_framework import parsers, renderers, status
+
+from users.permissions import IsPatient
 from .serializers import AuthTokenSerializer
-from .serializers import UserSerializer, ProfileSerializer, ProfilePictureSerializer, NotificationSerializer, UserVerificationRecordSerializer
+from .serializers import UserSerializer, ProfileSerializer, ProfilePictureSerializer, NotificationSerializer
 import jwt, datetime
 from .models import User, VerificationCode, Notification
 import random
@@ -23,6 +25,7 @@ class Login(APIView):
     serializer_class = AuthTokenSerializer
 
     def post(self, request):
+        print(request.data)
         serializer = self.serializer_class(data=request.data)
         if serializer.is_valid():
             token = jwt.encode({
@@ -73,7 +76,7 @@ class ResendVerificationCode(APIView):
         email_from = settings.EMAIL_HOST_USER
         recipient_list = (user.email,)
         send_mail( subject, message, email_from, recipient_list )
-        return Response({'email': user.email})
+        return Response({'email': user.email, "message": 'A verification code has been sent to your email'}, status=200)
 
 class SignupVerificationView(APIView):  
     def post(self, request):
@@ -122,6 +125,7 @@ class OtherProfileView(APIView):
         profile_data = ProfileSerializer(instance=user.profile).data
         profile_data.pop('id')
         profile_data.pop('user')
+        user_data.pop('password')
         data = dict(**(user_data), **(profile_data))
         return Response(data=data)
 
@@ -168,3 +172,21 @@ class NotificationsView(APIView):
             return Response({'error': 'You do not have permission to delete this notification'}, status=403)
         notification.delete()
         return Response({'message': 'Notification deleted successfully'}, status=200)
+
+class NotificationsCountView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        user = request.user
+        notifications = Notification.objects.filter(user=user, is_read=False)
+        count = notifications.count()
+        return Response({'count': count})
+
+class UpgradeToPremiumView(APIView):
+    permission_classes = [IsAuthenticated, IsPatient]
+    def post(self, request):
+        user = request.user
+        if user.is_premium:
+            return Response({'error': 'You are already a premium user'}, status=400)
+        user.is_premium = True
+        user.save()
+        return Response({'message': 'You are now a premium user'}, status=200)

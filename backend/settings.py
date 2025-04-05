@@ -156,3 +156,7 @@ EMAIL_HOST_USER = 'walidtest24@gmail.com'
 EMAIL_HOST_PASSWORD = 'oirwhponowplmhna'
 
 APP_NAME = 'NeoLAB'
+
+
+
+AI_SCAN_MODELS = ['vgg16', 'vgg19', 'resnet50', 'inceptionv3', 'mobilenetv2']

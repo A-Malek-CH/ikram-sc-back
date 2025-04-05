@@ -19,7 +19,7 @@ class AskSupporMessagetView(APIView):
         serializer = SupportMessageSerializer(data=request.data)
         if serializer.is_valid():
             support_message = serializer.save()
-            return Response(SupportMessageSerializer(support_message).data, status=status.HTTP_201_CREATED)
+            return Response({**serializer.data, 'message': "Question has been created successfully"}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     def delete(self, request):
@@ -37,22 +37,21 @@ class AskSupporMessagetView(APIView):
     
 class GetSupportMessageView(APIView):
     permission_classes = [IsAuthenticated]
-    def get(self, request):
-        if request.data.get('private'):
-            messages = SupportMessage.objects.filter(is_private=True)
-        else:
-            messages = SupportMessage.objects.all()
 
-        serializer = SupportMessageSerializer(messages, many=True)
+    def get(self, request):
+        if request.user.role == 'admin':
+            messages = SupportMessage.objects.all()
+        else:
+            messages = SupportMessage.objects.filter(user=request.user) | SupportMessage.objects.filter(is_private=False)
+
+        serializer = SupportMessageSerializer(messages.distinct(), many=True)
         return Response(serializer.data)
+
 
 
 class GetAnswerSupportMessageView(APIView):
     permission_classes = [IsAuthenticated]
-    def get(self, request):
-        id = request.data.get('id')
-        if not id:
-            return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+    def get(self, request, id):
         try:
             message = SupportMessage.objects.get(id=id)
         except SupportMessage.DoesNotExist:
