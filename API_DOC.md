@@ -58,7 +58,7 @@ http://localhost:8000/supports/get_answer_support_messages/:
 
 
 
-	http://localhost:8000/appointments/patients_appointments/: (for patients)
+http://localhost:8000/appointments/patients_appointments/: (for patients)
 	- POST body = {"type", "appointment_date"}, header = {"Authorization"} -> {"id", "type", "state", "creation_date", "attendance_date", appointment_date, "is_walk_in", "email", "user", "message"}
 	- DELETE body = {"id"}, header = {"Authorization"} -> response = {"message"}
 	- GET  header = {"Authorization"} -> [{"id", "type", "state", "creation_date", "attendance_date", appointment_date, "is_walk_in", "email", "user", "message"}, ...]
@@ -115,10 +115,96 @@ http://localhost:8000/medical_folder/manage_doctors/:
 	
 	
 
+GET /users/statistics/ not real yet
+
+Response:
+{
+  "total_patients": 124,
+  "total_appointments": 1248,
+  "pending_appointments": 5,
+  "today_appointments": 8,
+  "completion_rate": 98.5,
+  "avg_tests_per_day": 24.3,
+  "patient_satisfaction": 4.8,
+  "monthly_appointments": [
+    {"name": "Jan", "value": 65},
+    {"name": "Feb", "value": 72},
+    {"name": "Mar", "value": 85},
+    {"name": "Apr", "value": 78},
+    {"name": "May", "value": 90},
+    {"name": "Jun", "value": 95},
+    {"name": "Jul", "value": 100},
+    {"name": "Aug", "value": 110},
+    {"name": "Sep", "value": 105},
+    {"name": "Oct", "value": 115},
+    {"name": "Nov", "value": 120},
+    {"name": "Dec", "value": 130}
+  ],
+  "test_type_distribution": [
+    {"name": "Blood Test", "value": 45},
+    {"name": "Urinalysis", "value": 28},
+    {"name": "Lipid Panel", "value": 22},
+    {"name": "Glucose", "value": 18},
+    {"name": "Thyroid", "value": 15},
+    {"name": "Other", "value": 12}
+  ],
+  "weekday_distribution": [
+    {"name": "Mon", "value": 25},
+    {"name": "Tue", "value": 30},
+    {"name": "Wed", "value": 35},
+    {"name": "Thu", "value": 28},
+    {"name": "Fri", "value": 32},
+    {"name": "Sat", "value": 15},
+    {"name": "Sun", "value": 5}
+  ],
+  "patient_age_distribution": [
+    {"name": "18-24", "value": 15},
+    {"name": "25-34", "value": 25},
+    {"name": "35-44", "value": 30},
+    {"name": "45-54", "value": 22},
+    {"name": "55-64", "value": 18},
+    {"name": "65+", "value": 20}
+  ],
+  "gender_distribution": [
+    {"name": "Female", "value": 58},
+    {"name": "Male", "value": 42}
+  ],
+  "test_turnaround_time": [
+    {"name": "Blood Test", "value": 4},
+    {"name": "Urinalysis", "value": 2},
+    {"name": "Lipid Panel", "value": 6},
+    {"name": "Glucose", "value": 3},
+    {"name": "Thyroid", "value": 8}
+  ]
+}
+
+    path('change_password/',views.ChangePasswordView.as_view()),
+
+
+
+http://localhost:8000/users/update_profile/:
+  - POST body = {"birth_date", "gender", "blood_type", "height"}, header = {"Authorization"} -> {"id", "birth_date", "gender", "blood_type", "height", "user", "message"}
+
+http://localhost:8000/users/change_email/:
+  - POST body = {"email"}, header = {"Authorization"} -> {"message"}
+
+http://localhost:8000/users/change_email/:
+  - POST body = {"old_password", "new_password"}, header = {"Authorization"} -> {"message"}
+
+http://localhost:8000/users/settings/:
+  - GET header = {"Authorization"} -> {"email_notification", "appointments_notification", "results_notification", "marketing_email"}
+  - POST body = {"email_notification", "appointments_notification", "results_notification", "marketing_email"} header = {"Authorization"} -> {"email_notification", "appointments_notification", "results_notification", "marketing_email", "message"}
+
+
+   
+{"email_notification", "appointments_notification", "results_notification", "marketing_email"}
+    
 
 
 For later:
 http://localhost:8000/supports/create_uploaded_record/:
+	- POST body = {"type", "image", "description"}, header = {"Authorization"} -> {"id", "type", "image", "description", "creation_date", "appointment", "message"}
+
 http://localhost:8000/supports/doctor_suggestion/:
 
 

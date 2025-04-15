@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import User, VerificationCode, Profile, Notification
+from .models import User, VerificationCode, Profile, Notification, Settings
 
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import authenticate
@@ -87,7 +87,9 @@ class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = '__all__'
-
+        extra_kwargs = {
+            'user': {'read_only': True},
+        }
 class ProfilePictureSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
@@ -102,3 +104,8 @@ class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
         fields = '__all__'
+
+class SettingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Settings
+        fields = ['email_notification', 'appointments_notification', 'results_notification', 'marketing_email']

@@ -3,10 +3,19 @@ from users.models import User
 
 
 class Appointment(models.Model):
-    APPOINTMENT_TYPES = [('pneumonia', 'Pneumonia'), ('bone', 'Bone X Ray'), ('tuberculose', 'Tuberculose')]
+    APPOINTMENT_TYPES = [("bone","X-Ray"),
+  ("pneumonia", "Pneumonia"),
+  ("blood-test","Blood Test"),
+  ("urinalysis","Urinalysis"),
+  ("glucose","Blood Glucose"),
+  ("cholesterol", "Cholesterol Panel"),
+  ("thyroid","Thyroid Panel"),
+  ("complete-blood-count","Complete Blood Count"),
+  ("liver-function","Liver Function Test"),
+  ("kidney-function","Kidney Function Test")]
     APPOINTMENT_STATES = [('P', 'Pending'), ('A', 'Accepted'), ('R', 'Rejected'),('F', 'Finished'), ('M', 'Missed'),('C', 'Canceled'), ('D', 'Done')]
 
-    type = models.CharField(max_length=16, choices=APPOINTMENT_TYPES)
+    type = models.CharField(max_length=64, choices=APPOINTMENT_TYPES)
     state = models.CharField(max_length=1, choices=APPOINTMENT_STATES, default='P')
     creation_date = models.DateTimeField(auto_now_add=True)
     appointment_date = models.DateTimeField()

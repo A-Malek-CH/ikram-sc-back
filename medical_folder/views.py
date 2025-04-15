@@ -2,6 +2,7 @@ from rest_framework.views import APIView, Response
 from django.db.models import Q
 
 from appointments.models import Appointment
+from users.models import Notification
 from .serializers import AiScanSerializer, DoctorSerializer, MedicalSuggestionSerializer, RecordSerializer
 from .models import AiScan, Doctor, MedicalRecord
 from rest_framework.permissions import IsAuthenticated
@@ -21,7 +22,6 @@ class CreateRecordView(APIView):
     parser_classes = [FormParser, MultiPartParser]
 
     def post(self, request):
-        print(request.data)
         data = dict(request.data)
         if 'image' not in data:
             return Response({'error': 'Image is required'}, status=400)
@@ -43,7 +43,13 @@ class CreateRecordView(APIView):
         if serializer.is_valid():
             serializer.save()
             appointment.state = 'D'
-            appointment.save()
+            appointment.save() 
+            if not appointment.is_walk_in:
+                Notification.objects.create(
+                    user=appointment.user,
+                    description=f'Your medical result has been uploaded.',
+                    type='message'
+                )
             return Response(data={**serializer.data, "message": "Medical record has been created successfully"}, status=200)
         return Response(data=serializer.errors, status=500)
     
@@ -126,6 +132,7 @@ class ManageDoctorsView(APIView):
         if serialzer.is_valid():
             serialzer.save()
             return Response(data={**serialzer.data, "message": "Doctor has been added successfully"}, status=200)
+        print(serialzer.errors)
         return Response(data=serialzer.errors, status=500)
     
     def delete(self, request):
@@ -167,7 +174,7 @@ class CreateUploadedRecordView(APIView):
         
         record_data = dict(type = data['type'][0], image = data['image'][0], uploader = request.user.id, is_uploaded = True)
         
-        serializer = MedicalRecord(data=record_data)
+        serializer = RecordSerializer(data=record_data)
         if serializer.is_valid():
             serializer.save()
             return Response(data={**serializer.data, "message": "Medical record has been created successfully"}, status=200)

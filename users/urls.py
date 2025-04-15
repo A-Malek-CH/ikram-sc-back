@@ -14,4 +14,9 @@ urlpatterns = [
     path('notifications/', views.NotificationsView.as_view()),
     path('notifications_count/', views.NotificationsCountView.as_view()),
     path('upgrade_premuim/', views.UpgradeToPremiumView.as_view()),
+    path('statistics/', views.StatisticsView.as_view()),
+    path('change_email/', views.ChangeEmailView.as_view()),
+    path('change_password/',views.ChangePasswordView.as_view()),
+    path('settings/', views.SettingsView.as_view()),
+    path('update_profile/', views.ChangeProfileView.as_view()),
 ]

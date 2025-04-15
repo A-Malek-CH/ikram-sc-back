@@ -4,6 +4,7 @@ from rest_framework import status
 from django.core.mail import send_mail
 from django.shortcuts import get_object_or_404
 from rest_framework.permissions import IsAuthenticated
+from users.models import Notification
 from users.permissions import IsPatient, IsAdmin
 
 from backend import settings
@@ -69,7 +70,13 @@ class AnswerSupportMessageView(APIView):
         request.data['user'] = request.user.id
         serializer = SupportMessageAnswerSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            instance = serializer.save()
+            if instance.message.user:
+                Notification.objects.create(
+                    user=instance.message.user,
+                    description=f'Your message has been answered.',
+                    type='message'
+                )
             return Response({**serializer.data, 'message': 'Answer successfully created'}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

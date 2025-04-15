@@ -59,3 +59,14 @@ class Notification(models.Model):
     
     def __str__(self):
         return self.type
+
+class Settings(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    email_notification = models.BooleanField(default=False)
+    appointments_notification = models.BooleanField(default=True)
+    results_notification = models.BooleanField(default=True)
+    marketing_email = models.BooleanField(default=False)
+    
+    
+    def __str__(self):
+        return f"Settings for {self.user.email}"

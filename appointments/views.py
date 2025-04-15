@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework import status
 from django.utils.timezone import now
 from rest_framework.permissions import IsAuthenticated
+from users.models import Notification, User
 from users.permissions import IsPatient, IsAdmin
 from .models import Appointment
 from .serializers import AppointmentSerializer
@@ -84,6 +85,7 @@ class WalkInAppointmentView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
     def post(self, request):
         request.data['is_walk_in'] = True
+        request.data['state'] = 'A'
         serializer = AppointmentSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -103,6 +105,12 @@ class ManageAppointmentDemandsView(APIView):
         if appointment.state == 'P':
             appointment.state = 'A'
             appointment.save()
+            Notification.objects.create(
+                user=appointment.user,
+                description=f'Your appointment demand has been accepted.',
+                type='message'
+            )
+            
             return Response({'message': 'Appointment demand accepted successfully'}, status=status.HTTP_200_OK)
         return Response({'error': 'Only pending appointments can be accepted'}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -116,6 +124,11 @@ class ManageAppointmentDemandsView(APIView):
         if appointment.state == 'P':
             appointment.state = 'R'
             appointment.save()
+            Notification.objects.create(
+                user=appointment.user,
+                description=f'Your appointment demand has been rejected.',
+                type='message'
+            )
             return Response({'message': 'Appointment demand rejected successfully'}, status=status.HTTP_200_OK)
         return Response({'error': 'Only pending appointments can be rejected'}, status=status.HTTP_400_BAD_REQUEST)
     
@@ -132,6 +145,14 @@ class ManageAppointmentDemandsView(APIView):
         
         appointments = Appointment.objects.filter(**filters)
         serializer = AppointmentSerializer(appointments, many=True)
+        data = serializer.data
+        for appointment in data:
+            if appointment['is_walk_in']:
+                appointment['name'] = 'Walk-in'
+            else:
+                user = User.objects.filter(id=appointment['user']).first()
+                appointment['name'] = user.first_name + ' ' + user.last_name
+            
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class FinishAppointmentView(APIView):
@@ -147,6 +168,13 @@ class FinishAppointmentView(APIView):
             appointment.state = 'F'
             appointment.attendance_date = now()
             appointment.save()
+            if not appointment.is_walk_in:
+                Notification.objects.create(
+                    user=appointment.user,
+                    description=f'Your appointment has been finished.',
+                    type='message'
+                )
+            
             return Response({'message': 'Appointment marked as finished'}, status=status.HTTP_200_OK)
         return Response({'error': 'Only accepted appointments can be marked as finished'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -162,5 +190,11 @@ class MarkMissedAppointmentView(APIView):
         if appointment.state == 'A':
             appointment.state = 'M'
             appointment.save()
+            if not appointment.is_walk_in:
+                Notification.objects.create(
+                    user=appointment.user,
+                    description=f'Your appointment has been marked as missed.',
+                    type='message'
+                )
             return Response({'message': 'Appointment marked as missed'}, status=status.HTTP_200_OK)
         return Response({'error': 'Only accepted appointments can be marked as missed'}, status=status.HTTP_400_BAD_REQUEST)    
