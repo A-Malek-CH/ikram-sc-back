@@ -41,9 +41,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'users',
-    'appointments',
-    'supports',
-    'medical_folder',
 ]
 
 MIDDLEWARE = [

@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import User, VerificationCode, Profile, Notification, Settings
+from .models import User, VerificationCode, Profile, Notification, Settings, ForgetPasswordCode, Stage, Question, Session, Messages, Answer, Explanation
+
 
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth import authenticate
@@ -109,3 +110,62 @@ class SettingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Settings
         fields = ['email_notification', 'appointments_notification', 'results_notification', 'marketing_email']
+
+class ForgetPasswordCodeSerializer(serializers.ModelSerializer): # odn't need it
+    class Meta:
+        model = VerificationCode
+        fields = ['code', 'user']
+    
+    def validate_code(self, value):
+        if len(value) != 5:
+            raise serializers.ValidationError('Verfication code length must be 5 numbers exactly')
+        return value;
+
+    def validate(self, attrs):
+        code = attrs['code']
+        user_code = VerificationCode.objects.filter(user=attrs['user'])
+        if code != user_code:
+            raise serializers.ValidationError('incorrect verification code')
+        return super().validate(attrs)
+
+
+
+
+
+class StageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Stage
+        fields = '__all__'
+
+class QuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Question
+        fields = '__all__'
+
+class SessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Session
+        fields = '__all__'
+
+
+class SessionReadSerializer(serializers.ModelSerializer):
+    stage = StageSerializer()
+    class Meta:
+        model = Session
+        fields = '__all__'
+        
+        
+class MessagesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Messages
+        fields = '__all__'
+
+class AnswerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Answer
+        fields = '__all__'
+
+class ExplanationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Explanation
+        fields = '__all__'

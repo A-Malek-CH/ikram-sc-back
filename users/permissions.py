@@ -1,12 +1,12 @@
 from rest_framework.permissions import BasePermission
 
-class IsPatient(BasePermission):
+class IsNormal(BasePermission):
     """
-    Allows access only to Pateints.
+    Allows access only to Normal users.
     """
 
     def has_permission(self, request, view):
-        return bool(request.user.role == 'patient')
+        return bool(request.user.role == 'normal')
 
 class IsAdmin(BasePermission):
     """

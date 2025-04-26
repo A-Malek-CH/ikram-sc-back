@@ -5,20 +5,18 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from django.http import HttpResponse
 from django.conf import settings
 from rest_framework import parsers, renderers, status
-
-from appointments.models import Appointment
-from medical_folder.models import Doctor
-from users.permissions import IsAdmin, IsPatient
-from .serializers import AuthTokenSerializer, SettingSerializer
-from .serializers import UserSerializer, ProfileSerializer, ProfilePictureSerializer, NotificationSerializer
+from users import tools
+from users.permissions import IsAdmin, IsNormal
+from .serializers import AuthTokenSerializer, SessionReadSerializer, SettingSerializer
+from .serializers import UserSerializer, ProfileSerializer, ProfilePictureSerializer, NotificationSerializer, StageSerializer, QuestionSerializer, SessionSerializer, MessagesSerializer, AnswerSerializer
 import jwt, datetime
-from .models import Settings, User, VerificationCode, Notification
+from .models import Explanation, ForgetPasswordCode, Settings, User, VerificationCode, Notification, Stage, Question, Session, Messages, Answer
+
 import random
 from django.core.mail import send_mail
 from .custom_renderers import ImageRenderer
 from rest_framework import generics
 from .models import Profile
-from django.utils import timezone
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.contrib.auth.password_validation import validate_password
@@ -43,7 +41,7 @@ class Login(APIView):
                 'exp': datetime.datetime.utcnow() + datetime.timedelta(days=5)
             }, settings.SECRET_KEY, algorithm='HS256')
             user = User.objects.filter(email=serializer.validated_data['email']).first()
-            return Response({'token': token, 'role': user.role})
+            return Response({'token': token, 'role': user.role, "name": f"{user.first_name} {user.last_name}", "is_premium": user.is_premium})
         user = User.objects.filter(email=request.data['email']).first()
         if user:
             if not user.is_active:
@@ -53,7 +51,7 @@ class Login(APIView):
 class SignupView(APIView): 
     def post(self, request):
         serializer = UserSerializer(data=request.data)
-        if serializer.is_valid(raise_exception=True):
+        if serializer.is_valid():
             instance = serializer.save()
         code = ''.join([str(random.choice(range(10))) for i in range(5)])
         verificationCode = VerificationCode(code=code, user=instance)
@@ -129,6 +127,17 @@ class SignupVerificationView(APIView):
             Profile(user=user).save()
             Settings(user=user).save()
             user.save()
+            stages = Stage.objects.all()
+            for i, stage in enumerate(stages):
+                session_data = dict()
+                session_data['user'] = user.id
+                session_data['stage'] = stage.id
+                session_data['current_question'] = 0
+                session_data['is_unlocked'] = not i
+                session_data['is_completed'] = False
+                serializer = SessionSerializer(data=session_data)
+                if serializer.is_valid(raise_exception=True):
+                    serializer.save()
             return Response({'email': user.email, 'message': 'Your email has been verified'}, status=200)
         return Response({'error': 'Can\'t verify user'}, status=400)
 
@@ -142,7 +151,11 @@ class MyProfileView(APIView):
         user_data.pop('password')
         profile_data.pop('id')
         profile_data.pop('user')
-        data = dict(**(user_data), **(profile_data), is_premium=user.is_premium)
+        
+        progress = Session.objects.filter(user=user, is_completed=True).count()
+        progress_ratio = progress / Session.objects.filter(user=user).count()
+        total_answers = Answer.objects.filter(session__user=user).count()
+        data = dict(**(user_data), **(profile_data), is_premium=user.is_premium, progress=progress, progress_ratio=progress_ratio, total_answers=total_answers)
         return Response(data=data)
     
 class ChangeProfilePictureView(APIView):
@@ -174,20 +187,7 @@ class FetchProfilePictureView(generics.RetrieveAPIView):
     def get(self, request, id):
         data = User.objects.get(id=id).picture
         return HttpResponse(data, content_type='image/' + data.path.split(".")[-1])
-    
-class ResetPassword(APIView): 
-    def post(self, request):
-        request.data['email'] = request.user.email
-        serializer = UserSerializer(instance=request.user, data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            instance = serializer.save()
-        data = serializer.validated_data
-        subject = 'welcome to HomeCare'
-        message = f'Hi {request.user.first_name} {request.user.last_name} , your password has been changed.'
-        email_from = settings.EMAIL_HOST_USER
-        recipient_list = (request.user.email,)
-        send_mail( subject, message, email_from, recipient_list )
-        return Response({'email': request.user.email})
+
 
 class NotificationsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -221,7 +221,7 @@ class NotificationsCountView(APIView):
         return Response({'count': count})
 
 class UpgradeToPremiumView(APIView):
-    permission_classes = [IsAuthenticated, IsPatient]
+    permission_classes = [IsAuthenticated, IsNormal]
     def post(self, request):
         user = request.user
         if user.is_premium:
@@ -234,67 +234,7 @@ class UpgradeToPremiumView(APIView):
 class StatisticsView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
     def get(self, request):
-            return Response({
-  "total_patients": User.objects.filter(role='patient').count(),
-  "total_appointments": Appointment.objects.all().count(),
-  "total_doctors": Doctor.objects.all().count(),
-  "pending_appointments": Appointment.objects.filter(state='F').count(),
-  "today_appointments": Appointment.objects.filter(state='P').count(),
-  "completion_rate": (Appointment.objects.filter(appointment_date__date=timezone.localdate()).filter(state__in=['F', 'M', 'D']).count() / Appointment.objects.filter(appointment_date__date=timezone.localdate()).filter(state__in=['A', 'F', 'M', 'C', 'D']).count() if Appointment.objects.filter(appointment_date__date=timezone.localdate()).filter(state__in=['A', 'F', 'M', 'C', 'D']).count() > 0 else 0) * 100
-,
-  "avg_tests_per_day": 24.3,
-  "patient_satisfaction": 4.8,
-  "monthly_appointments": [
-    {"name": "Jan", "value": 65},
-    {"name": "Feb", "value": 72},
-    {"name": "Mar", "value": 85},
-    {"name": "Apr", "value": 78},
-    {"name": "May", "value": 90},
-    {"name": "Jun", "value": 95},
-    {"name": "Jul", "value": 100},
-    {"name": "Aug", "value": 110},
-    {"name": "Sep", "value": 105},
-    {"name": "Oct", "value": 115},
-    {"name": "Nov", "value": 120},
-    {"name": "Dec", "value": 130}
-  ],
-  "test_type_distribution": [
-    {"name": "Blood Test", "value": 45},
-    {"name": "Urinalysis", "value": 28},
-    {"name": "Lipid Panel", "value": 22},
-    {"name": "Glucose", "value": 18},
-    {"name": "Thyroid", "value": 15},
-    {"name": "Other", "value": 12}
-  ],
-  "weekday_distribution": [
-    {"name": "Mon", "value": 25},
-    {"name": "Tue", "value": 30},
-    {"name": "Wed", "value": 35},
-    {"name": "Thu", "value": 28},
-    {"name": "Fri", "value": 32},
-    {"name": "Sat", "value": 15},
-    {"name": "Sun", "value": 5}
-  ],
-  "patient_age_distribution": [
-    {"name": "18-24", "value": 15},
-    {"name": "25-34", "value": 25},
-    {"name": "35-44", "value": 30},
-    {"name": "45-54", "value": 22},
-    {"name": "55-64", "value": 18},
-    {"name": "65+", "value": 20}
-  ],
-  "gender_distribution": [
-    {"name": "Female", "value": 58},
-    {"name": "Male", "value": 42}
-  ],
-  "test_turnaround_time": [
-    {"name": "Blood Test", "value": 4},
-    {"name": "Urinalysis", "value": 2},
-    {"name": "Lipid Panel", "value": 6},
-    {"name": "Glucose", "value": 3},
-    {"name": "Thyroid", "value": 8}
-  ]
-})
+            return Response({})
 
 
 
@@ -341,6 +281,7 @@ class ChangePasswordView(APIView):
         try:
             validate_password(new_password, user=user)
         except ValidationError as e:
+            print(e.messages)
             return Response({'error': e.messages}, status=status.HTTP_400_BAD_REQUEST)
 
         user.set_password(new_password)
@@ -391,3 +332,252 @@ class ChangeProfileView(APIView):
             return Response({'message': 'Profile updated successfully.', **serializer.data}, status=status.HTTP_200_OK)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ForgetPasswordView(APIView): 
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({'error': 'Email is required'}, status=400)
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response({'error': 'Invalid email format'}, status=400)
+        if not User.objects.filter(email=email).exists():
+            return Response({'error': 'There is no user with such email'}, status=400)
+        user = User.objects.get(email=email)
+        code = ''.join([str(random.choice(range(10))) for i in range(5)])
+        if ForgetPasswordCode.objects.filter(user=user).exists():
+            for old_code in ForgetPasswordCode.objects.filter(user=user):
+                old_code.delete()
+        forget_password_code = ForgetPasswordCode(code=code, user=user)
+        forget_password_code.save()
+        subject = f'welcome to {settings.APP_NAME}'
+        message = f'Hi {user.first_name} {user.last_name} , We received a request to reset your password for <strong>{settings.APP_NAME}, your password reset code is: {code}'
+        email_from = settings.EMAIL_HOST_USER
+        recipient_list = (user.email,)
+        html_message = f"""
+    <html>
+  <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+    <p>Hi <strong>{user.first_name} {user.last_name}</strong>,</p>
+    <p>We received a request to reset your password for <strong>{settings.APP_NAME}</strong>.</p>
+    <p>Your password reset code is:</p>
+    <div style="font-size: 24px; font-weight: bold; color: #2c3e50; margin: 10px 0;">
+      {code}
+    </div>
+    <p>Please enter this code to reset your password.</p>
+    <br>
+    <p style="font-size: 12px; color: gray;">If you didn’t request a password reset, you can safely ignore this email.</p>
+  </body>
+</html>
+    """
+
+        send_mail( subject, message, email_from, recipient_list, html_message=html_message, fail_silently=False)
+        return Response({'email': user.email, "message": 'A verification code has been sent to your email'}, status=200)
+
+class ForgetPasswordVerificationView(APIView):  
+    def post(self, request):
+        code = request.data.get('code')
+        if not code:
+            return Response({'error': 'Code is required'}, status=400)
+        email = request.data.get('email')
+        if not email:
+            return Response({'error': 'Email is required'}, status=400)
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response({'error': 'Invalid email format'}, status=400)
+        if not User.objects.filter(email=email).exists():
+            return Response({'error': 'There is no user with such email'}, status=400)
+        user = User.objects.filter(email=email).first()
+        if not user:
+            return Response({'error': 'There is no user with such email'}, status=400)
+        user_code = ForgetPasswordCode.objects.filter(user=user.id).first()
+        if user_code is None:
+            return Response({'error': 'There is no verification code for this user'}, status=400)
+        password = request.data.get('password')
+        if not password:
+            return Response({'error': 'Password is required'}, status=400)
+        try:
+            validate_password(password, user=user)
+        except ValidationError as e:
+            return Response({'error': e.messages}, status=400)
+        if code == user_code.code:
+            user.set_password(password)
+            user.save()
+            user_code.delete()
+            return Response({'email': user.email, 'message': 'Your password has been changed'}, status=200)
+        return Response({'error': 'Can\'t verify code'}, status=400)
+    
+    def put(self, request):
+        code = request.data.get('code')
+        if not code:
+            return Response({'error': 'Code is required'}, status=400)
+        email = request.data.get('email')
+        if not email:
+            return Response({'error': 'Email is required'}, status=400)
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response({'error': 'Invalid email format'}, status=400)
+        if not User.objects.filter(email=email).exists():
+            return Response({'error': 'There is no user with such email'}, status=400)
+        user = User.objects.filter(email=email).first()
+        if not user:
+            return Response({'error': 'There is no user with such email'}, status=400)
+        user_code = ForgetPasswordCode.objects.filter(user=user.id).first()
+        if user_code is None:
+            return Response({'error': 'There is no verification code for this user'}, status=400)
+        
+        if code == user_code.code:
+            return Response({'email': user.email, 'message': 'The code you entered is valid'}, status=200)
+        return Response({'error': 'Can\'t verify code'}, status=400)
+
+
+class SessionsView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        user = request.user
+        sessions = Session.objects.filter(user=user).order_by('stage__order')
+        serializer = SessionReadSerializer(instance=sessions, many=True)
+        return Response(data=serializer.data, status=200)
+
+class ResetSessionView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        user = request.user
+        session_id = request.data.get('session_id')
+        if not session_id:
+            return Response({'error': 'Session ID is required'}, status=400)
+        session = Session.objects.filter(user=user, id=session_id).first()
+        if not session:
+            return Response({'error': 'Session not found'}, status=404)
+        session.current_question = 0
+        session.is_completed = False
+        session.save()
+        messages = Messages.objects.filter(session=session)
+        for message in messages:
+            message.delete()
+        answers = Answer.objects.filter(session=session)
+        for answer in answers:
+            answer.delete()
+        return Response({'message': 'Session reset successfully'}, status=200)
+
+class InitializeChatView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        user = request.user
+        session_id = request.data.get('session_id')
+        if not session_id:
+            return Response({'error': 'Session ID is required'}, status=400)
+        session = Session.objects.filter(user=user, id=session_id).first()
+        if not session:
+            return Response({'error': 'Session not found'}, status=404)
+        if not session.is_unlocked:
+            return Response({'error': 'This stage is locked'}, status=403)
+        if session.is_completed:
+            return Response({'error': 'This stage is already completed'}, status=403)
+        stage = session.stage
+        if session.in_explanation:
+            session.in_explanation = False
+            session.save()
+            explanations = Explanation.objects.filter(stage=stage)
+            if explanations.exists():
+                messages = []
+                for explanation in explanations:
+                    message = tools.process_explanation(explanation.explanation)
+                    instance = Messages.objects.create(session=session, message=message, is_user=False)
+                    messages.append(instance)
+                serializer = MessagesSerializer(instance=messages, many=True)
+                return Response(serializer.data, status=200)
+            
+        question = Question.objects.filter(stage=stage).order_by('order')[session.current_question]
+        serializer = QuestionSerializer(instance=question)
+        message = tools.process_init_question(question.question)
+        Messages.objects.create(session=session, message=message, is_user=False)
+        return Response(data={'messages': [serializer.data]}, status=200)
+
+class ChatView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        user = request.user
+        session_id = request.data.get('session_id')
+        if not session_id:
+            return Response({'error': 'Session ID is required'}, status=400)
+        session = Session.objects.filter(user=user, id=session_id).first()
+        if not session:
+            return Response({'error': 'Session not found'}, status=404)
+        if not session.is_unlocked:
+            return Response({'error': 'This stage is locked'}, status=403)
+        if session.is_completed:
+            return Response({'error': 'This stage is already completed'}, status=403)
+        message = request.data.get('message')
+        if not message:
+            return Response({'error': 'Message is required'}, status=400)
+        messages = Messages(session=session, message=message, is_user=True)
+        messages.save()
+        question = Question.objects.filter(stage=session.stage).order_by('order')[session.current_question]
+        is_answer, ai_answer = tools.process_answer(message, question.question)
+        if is_answer:
+            answer = Answer(session=session, question=question, answer=message)
+            answer.save()
+            session.current_question += 1
+            if session.current_question >= Question.objects.filter(stage=session.stage).count():
+                session.is_completed = True
+                session.save()
+        ai_messages = Messages(session=session, message=ai_answer, is_user=False)
+        ai_messages.save()
+        serializer = MessagesSerializer(instance=ai_messages)
+        return Response(data=[serializer.data], status=200)
+    
+    def get(self, request):
+        user = request.user
+        session_id = request.query_params.get('session_id')
+        if not session_id:
+            return Response({'error': 'Session ID is required'}, status=400)
+        session = Session.objects.filter(user=user, id=session_id).first()
+        if not session:
+            return Response({'error': 'Session not found'}, status=404)
+        if not session.is_unlocked:
+            return Response({'error': 'This stage is locked'}, status=403)
+        messages = Messages.objects.filter(session=session).order_by('creation_date')
+        serializer = MessagesSerializer(instance=messages, many=True)
+        return Response(data=serializer.data, status=200)
+
+class FillFormView(APIView):
+    def post(self, request):
+        user = request.user
+        session_id = request.data.get('session_id')
+        if not session_id:
+            return Response({'error': 'Session ID is required'}, status=400)
+        session = Session.objects.filter(user=user, id=session_id).first()
+        if not session:
+            return Response({'error': 'Session not found'}, status=404)
+        if not session.is_unlocked:
+            return Response({'error': 'This stage is locked'}, status=403)
+        if session.stage.is_chat:
+            return Response({'error': 'This stage is a chat stage'}, status=403)
+        if session.is_completed:
+            return Response({'error': 'This stage is already completed'}, status=403)
+        question = Question.objects.filter(stage=session.stage).order_by('order')[session.current_question]
+        answer = Answer(session=session, question=question, answer=request.data.get('answer'))
+        answer.save()
+        serializer = AnswerSerializer(instance=answer)
+        return Response(data=serializer.data, status=200)
+        
+    
+    def get(self, request):
+        user = request.user
+        session_id = request.query_params.get('session_id')
+        if not session_id:
+            return Response({'error': 'Session ID is required'}, status=400)
+        session = Session.objects.filter(user=user, id=session_id).first()
+        if not session:
+            return Response({'error': 'Session not found'}, status=404)
+        if not session.is_unlocked:
+            return Response({'error': 'This stage is locked'}, status=403)
+        if session.stage.is_chat:
+            return Response({'error': 'This stage is a chat stage'}, status=403)
+        questions = Question.objects.filter(stage=session.stage).order_by('order')
+        serializer = QuestionSerializer(instance=questions, many=True)
+        return Response(data=serializer.data, status=200)
