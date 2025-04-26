@@ -137,7 +137,7 @@ class SignupVerificationView(APIView):
                 session_data['is_completed'] = False
                 serializer = SessionSerializer(data=session_data)
                 if serializer.is_valid(raise_exception=True):
-                    serializer.save()
+                        serializer.save()
             return Response({'email': user.email, 'message': 'Your email has been verified'}, status=200)
         return Response({'error': 'Can\'t verify user'}, status=400)
 
