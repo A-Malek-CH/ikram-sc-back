@@ -1,16 +1,22 @@
 # Django
 db.sqlite3
 media/
+.env
 
 # Python cache
 __pycache__/
-*.pyc
+*.py[cod]
 
 # Virtual environment
 venv/
 
-# Django Migrations
-**/migrations/**
-
 # Optional: VS Code settings if you're using it
 .vscode/
+
+# Optional: Build artifact directories
+/build/
+/dist/
+/*.egg-info/
+
+# Optional: Static files collected locally (if applicable)
+#/static/
