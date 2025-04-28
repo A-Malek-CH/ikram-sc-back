@@ -1,3 +1,16 @@
+# Django
 db.sqlite3
-*__pycache__*
-*/migrations/0*
+media/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+
+# Django Migrations
+**/migrations/**
+
+# Optional: VS Code settings if you're using it
+.vscode/
