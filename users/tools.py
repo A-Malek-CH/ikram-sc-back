@@ -2,7 +2,7 @@ import google.generativeai as genai
 import os
 
 
-GOOGLE_API_KEY = "AIzaSyCeIamx0poSIzL7RexlBhL2FQ_r4cKvaqQ"  
+GOOGLE_API_KEY = "AIzaSyB6R5M3KlbBli5ED-j9IHbPBECdhvXicFE"  
 genai.configure(api_key=GOOGLE_API_KEY)
 model = genai.GenerativeModel(model_name="models/gemini-1.5-pro")
 
