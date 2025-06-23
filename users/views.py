@@ -5,6 +5,12 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from django.http import HttpResponse
 from django.conf import settings
 from rest_framework import parsers, renderers, status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
+from .models import ConfidenceTestResult
+from .models import ConfidenceTestResult
 from users import tools
 from users.permissions import IsAdmin, IsNormal
 from .serializers import AuthTokenSerializer, SessionReadSerializer, SettingSerializer
@@ -48,11 +54,39 @@ class Login(APIView):
                 return Response({'error': 'You need to verify your email'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class SignupView(APIView): 
+
+# in views.py
+
+class SubmitConfidenceScoreView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        score = request.data.get("score")
+        try:
+            score = float(score)
+        except (ValueError, TypeError):
+            return Response({"error": "Invalid score"}, status=status.HTTP_400_BAD_REQUEST)
+
+        result = ConfidenceTestResult.objects.create(user=request.user, score=score)
+        return Response({"message": "Score saved", "id": result.id}, status=status.HTTP_201_CREATED)
+class LatestConfidenceScoreView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        score = ConfidenceTestResult.objects.filter(user=request.user).order_by('-created_at').first()
+
+        return Response({"score": score.score if score else None})
+
+
+class SignupView(APIView):
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
             instance = serializer.save()
+
+            # Create profile immediately with major and academic_year if provided
+            major = request.data.get("major", "")
+            academic_year = request.data.get("academic_year", "")
+            Profile.objects.create(user=instance, major=major, academic_year=academic_year)
         code = ''.join([str(random.choice(range(10))) for i in range(5)])
         verificationCode = VerificationCode(code=code, user=instance)
         verificationCode.save()
@@ -124,7 +158,7 @@ class SignupVerificationView(APIView):
         if code == user_code.code:
             user_code.delete()
             user.is_active = True
-            Profile(user=user).save()
+
             Settings(user=user).save()
             user.save()
             stages = Stage.objects.all()
@@ -148,27 +182,50 @@ class MyProfileView(APIView):
         user = request.user
         user_data = UserSerializer(instance=user).data
         profile_data = ProfileSerializer(instance=user.profile).data
+
         user_data.pop('password')
-        profile_data.pop('id')
-        profile_data.pop('user')
+
         
         progress = Session.objects.filter(user=user, is_completed=True).count()
         progress_ratio = progress / Session.objects.filter(user=user).count()
         total_answers = Answer.objects.filter(session__user=user).count()
         data = dict(**(user_data), **(profile_data), is_premium=user.is_premium, progress=progress, progress_ratio=progress_ratio, total_answers=total_answers)
         return Response(data=data)
-    
+
+
 class ChangeProfilePictureView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [FormParser, MultiPartParser]
-    
+
     def post(self, request):
         user = request.user
-        serializer = ProfilePictureSerializer(instance=user, data=request.data)
+        profile = user.profile
+
+        picture_file = request.FILES.get('picture')
+
+        if not picture_file:
+            return Response({'error': 'No picture file provided'}, status=400)
+
+        profile.picture = picture_file
+        profile.save()
+
+        return Response({'message': 'Profile picture updated successfully'}, status=200)
+
+class ChangeProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            profile = request.user.profile
+        except Profile.DoesNotExist:
+            return Response({'error': 'Profile does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = ProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(data={'message': 'Profile picture changed successfully'}, status=200)
-        return Response(data=serializer.errors, status=400)
+            return Response({'message': 'Profile updated successfully.', **serializer.data}, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class OtherProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -444,92 +501,148 @@ class SessionsView(APIView):
 
 class ResetSessionView(APIView):
     permission_classes = [IsAuthenticated]
+
     def post(self, request):
         user = request.user
-        session_id = request.data.get('session_id')
+        session_id = request.data.get("session_id")
+
         if not session_id:
-            return Response({'error': 'Session ID is required'}, status=400)
+            return Response({"error": "Session ID is required"}, status=400)
+
         session = Session.objects.filter(user=user, id=session_id).first()
         if not session:
-            return Response({'error': 'Session not found'}, status=404)
+            return Response({"error": "Session not found"}, status=404)
+
+        # Reset session metadata
         session.current_question = 0
         session.is_completed = False
+        session.in_explanation = True  # ✅ mark as needing explanations
         session.save()
-        messages = Messages.objects.filter(session=session)
-        for message in messages:
-            message.delete()
-        answers = Answer.objects.filter(session=session)
-        for answer in answers:
-            answer.delete()
-        return Response({'message': 'Session reset successfully'}, status=200)
+
+        # Delete all messages
+        Messages.objects.filter(session=session).delete()
+
+        # Delete all answers
+        Answer.objects.filter(session=session).delete()
+
+        return Response({"message": "Session has been reset."}, status=200)
+
 
 class InitializeChatView(APIView):
     permission_classes = [IsAuthenticated]
+
     def post(self, request):
         user = request.user
         session_id = request.data.get('session_id')
+
         if not session_id:
             return Response({'error': 'Session ID is required'}, status=400)
+
         session = Session.objects.filter(user=user, id=session_id).first()
         if not session:
             return Response({'error': 'Session not found'}, status=404)
+
         if not session.is_unlocked:
             return Response({'error': 'This stage is locked'}, status=403)
+
         if session.is_completed:
             return Response({'error': 'This stage is already completed'}, status=403)
+
         stage = session.stage
+        messages = []
+
+        # 1. Send explanations if needed
         if session.in_explanation:
-            session.in_explanation = False
+            session.in_explanation = False  # Mark explanations as done
             session.save()
+
             explanations = Explanation.objects.filter(stage=stage)
-            if explanations.exists():
-                messages = []
-                for explanation in explanations:
-                    message = tools.process_explanation(explanation.explanation)
-                    instance = Messages.objects.create(session=session, message=message, is_user=False)
-                    messages.append(instance)
-                serializer = MessagesSerializer(instance=messages, many=True)
-                return Response(serializer.data, status=200)
-            
-        question = Question.objects.filter(stage=stage).order_by('order')[session.current_question]
-        serializer = QuestionSerializer(instance=question)
-        message = tools.process_init_question(question.question)
-        Messages.objects.create(session=session, message=message, is_user=False)
-        return Response(data={'messages': [serializer.data]}, status=200)
+            for explanation in explanations:
+                message = tools.process_explanation(explanation.explanation)
+                msg = Messages.objects.create(session=session, message=message, is_user=False)
+                messages.append(msg)
+
+        # 2. Then send the first question if current_question == 0 and no question message exists yet
+        if session.current_question == 0 and not Messages.objects.filter(session=session, is_user=False,
+                                                                         message__icontains="?").exists():
+            question = Question.objects.filter(stage=stage).order_by('order').first()
+            if question:
+                ai_message = tools.process_init_question(question.question)
+                msg = Messages.objects.create(session=session, message=ai_message, is_user=False)
+                messages.append(msg)
+
+        serializer = MessagesSerializer(instance=messages, many=True)
+        return Response(serializer.data, status=200)
+
 
 class ChatView(APIView):
     permission_classes = [IsAuthenticated]
+
     def post(self, request):
         user = request.user
         session_id = request.data.get('session_id')
+        message = request.data.get('message')
+
         if not session_id:
             return Response({'error': 'Session ID is required'}, status=400)
+        if not message:
+            return Response({'error': 'Message is required'}, status=400)
+
         session = Session.objects.filter(user=user, id=session_id).first()
         if not session:
             return Response({'error': 'Session not found'}, status=404)
         if not session.is_unlocked:
             return Response({'error': 'This stage is locked'}, status=403)
-        if session.is_completed:
-            return Response({'error': 'This stage is already completed'}, status=403)
-        message = request.data.get('message')
-        if not message:
-            return Response({'error': 'Message is required'}, status=400)
-        messages = Messages(session=session, message=message, is_user=True)
-        messages.save()
-        question = Question.objects.filter(stage=session.stage).order_by('order')[session.current_question]
-        is_answer, ai_answer = tools.process_answer(message, question.question)
-        if is_answer:
-            answer = Answer(session=session, question=question, answer=message)
-            answer.save()
-            session.current_question += 1
-            if session.current_question >= Question.objects.filter(stage=session.stage).count():
-                session.is_completed = True
-                session.save()
-        ai_messages = Messages(session=session, message=ai_answer, is_user=False)
-        ai_messages.save()
-        serializer = MessagesSerializer(instance=ai_messages)
-        return Response(data=[serializer.data], status=200)
-    
+
+        # Save user message
+        Messages.objects.create(session=session, message=message, is_user=True)
+
+        # Check if session is already completed (after user last message)
+        questions = Question.objects.filter(stage=session.stage).order_by('order')
+        if session.current_question >= len(questions):
+            # Send final congratulatory message only once
+            if not Messages.objects.filter(session=session, message__icontains="أحسنت").exists():
+                final_msg = "🎉 أحسنت! لقد أكملت هذه المرحلة بنجاح. أنت تبلي بلاءً حسنًا! استمر في التقدم!"
+                final_ai = Messages.objects.create(session=session, message=final_msg, is_user=False)
+                return Response(data=[MessagesSerializer(instance=final_ai).data], status=200)
+            return Response(data=[], status=200)
+
+        # Normal case: answer + move to next
+        current_question = questions[session.current_question]
+        Answer.objects.create(session=session, question=current_question, answer=message)
+
+        session.current_question += 1
+        if session.current_question >= len(questions):
+            session.is_completed = True
+            # 🔓 Unlock next session
+            next_session = Session.objects.filter(user=user, stage__order=session.stage.order + 1).first()
+            if next_session:
+                next_session.is_unlocked = True
+                next_session.save()
+
+        session.save()
+
+        ai_messages = []
+
+        # Optional feedback
+        _, feedback = tools.process_answer(message, current_question.question)
+        ai_feedback = Messages.objects.create(session=session, message=feedback, is_user=False)
+        ai_messages.append(ai_feedback)
+
+        # Next question if any
+        if not session.is_completed:
+            next_question = questions[session.current_question]
+            prompt = tools.process_init_question(next_question.question)
+            ai_question = Messages.objects.create(session=session, message=prompt, is_user=False)
+            ai_messages.append(ai_question)
+        else:
+            final_msg = "🎉 أحسنت! لقد أكملت هذه المرحلة بنجاح. استمر في رحلتك نحو التحسن."
+            final_ai = Messages.objects.create(session=session, message=final_msg, is_user=False)
+            ai_messages.append(final_ai)
+
+        serializer = MessagesSerializer(instance=ai_messages, many=True)
+        return Response(data=serializer.data, status=200)
+
     def get(self, request):
         user = request.user
         session_id = request.query_params.get('session_id')

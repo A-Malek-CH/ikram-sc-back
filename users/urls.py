@@ -1,5 +1,7 @@
 from django.urls import path
 from . import views
+from .views import ChangeProfileView, LatestConfidenceScoreView
+from .views import SubmitConfidenceScoreView
 
 urlpatterns = [
     path('login/', views.Login.as_view()),
@@ -9,6 +11,7 @@ urlpatterns = [
     path('my_profile/', views.MyProfileView.as_view()),
     path('change_profile_picture/', views.ChangeProfilePictureView.as_view()),
     path('others_profile/<int:id>/', views.OtherProfileView.as_view()),
+path('submit_confidence_score/', SubmitConfidenceScoreView.as_view(), name='submit_confidence_score'),
     path('profile_picture/<int:id>/', views.FetchProfilePictureView.as_view()),
     path('notifications/', views.NotificationsView.as_view()),
     path('notifications_count/', views.NotificationsCountView.as_view()),
@@ -24,4 +27,8 @@ urlpatterns = [
     path('initialize_chat/', views.InitializeChatView.as_view()),
     path('chat/', views.ChatView.as_view()),
     path('fill_form/', views.FillFormView.as_view()),
+    path('reset_session/', views.ResetSessionView.as_view()),
+path("change_profile/", ChangeProfileView.as_view(), name="change_profile"),
+path('confidence_score/', LatestConfidenceScoreView.as_view()),
+
 ]

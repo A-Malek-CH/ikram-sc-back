@@ -1,8 +1,16 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from . import managers
-import os
+from django.conf import settings
 
+import os
+class ConfidenceTestResult(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    score = models.FloatField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Confidence score {self.score} by {self.user.email}"
 class User(AbstractUser):
     ROLE_CHOICES = [('normal', 'Normal'), ('admin', 'Admin')]
 
@@ -27,16 +35,10 @@ class User(AbstractUser):
     objects = managers.UserManager()
 
 class Profile(models.Model):
-    GENDER_CHOICES = [('F', 'Female'), ('M', 'Male')]
-    BLOOD_TYPE_CHOICES = [('A+', 'A+'), ('B+', 'B+'), ('AB+', 'AB+'), ('O+', 'O+'),
-                           ('A-', 'A-'), ('B-', 'B-'), ('AB-', 'AB-'), ('O-', 'O-')]
-    
-    birth_date = models.DateField(null=True, blank=True)
-    gender = models.CharField(max_length=1, choices=GENDER_CHOICES, null=True, blank=True)
-    blood_type = models.CharField(max_length=3, choices=BLOOD_TYPE_CHOICES, null=True, blank=True)
-    height = models.IntegerField(null=True, blank=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    
+    major = models.CharField(max_length=100, blank=True, null=True, verbose_name="التخصص")
+    academic_year = models.CharField(max_length=50, blank=True, null=True, verbose_name="العام الدراسي")
+
     def __str__(self):
         return self.user.email
 

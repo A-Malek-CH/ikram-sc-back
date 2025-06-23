@@ -87,7 +87,7 @@ class VerificationCodeSerializer(serializers.ModelSerializer): # odn't need it
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = '__all__'
+        fields = ['major', 'academic_year']
         extra_kwargs = {
             'user': {'read_only': True},
         }

@@ -2,9 +2,9 @@ import google.generativeai as genai
 import os
 
 
-GOOGLE_API_KEY = "AIzaSyB6R5M3KlbBli5ED-j9IHbPBECdhvXicFE"  
+GOOGLE_API_KEY = "AIzaSyDAsH31KhZ4_bN1RRgAsLhnVQlW2EVVmBA"
 genai.configure(api_key=GOOGLE_API_KEY)
-model = genai.GenerativeModel(model_name="models/gemini-1.5-pro")
+model = genai.GenerativeModel(model_name="models/gemini-1.5-flash")
 
 def process_explanation(message):
     prompt = f""" as a therapist for students , Explain the following concept in a way that is easy for a student to understand , remember you have to asnwser just in arabic language , and don't include any parenthetical phrases:
