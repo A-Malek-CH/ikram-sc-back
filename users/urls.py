@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
-from .views import ChangeProfileView, LatestConfidenceScoreView
+from .views import ChangeProfileView, LatestConfidenceScoreView, AgreementSessionView, AllConfidenceScoresView, \
+    AllAnswersView, AdminExportView
 from .views import SubmitConfidenceScoreView
 
 urlpatterns = [
@@ -10,10 +11,14 @@ urlpatterns = [
     path('verify_signup/', views.SignupVerificationView.as_view()),
     path('my_profile/', views.MyProfileView.as_view()),
     path('change_profile_picture/', views.ChangeProfilePictureView.as_view()),
+path("agreement/", AgreementSessionView.as_view(), name="agreement-session"),
     path('others_profile/<int:id>/', views.OtherProfileView.as_view()),
 path('submit_confidence_score/', SubmitConfidenceScoreView.as_view(), name='submit_confidence_score'),
     path('profile_picture/<int:id>/', views.FetchProfilePictureView.as_view()),
     path('notifications/', views.NotificationsView.as_view()),
+path('admin/all_answers/', AllAnswersView.as_view(), name='all-answers'),
+path("admin/export_answers/", AdminExportView.as_view(), name="admin-export-answers"),
+path('admin/all_confidence_scores/', AllConfidenceScoresView.as_view(), name='all-confidence-scores'),
     path('notifications_count/', views.NotificationsCountView.as_view()),
     path('upgrade_premuim/', views.UpgradeToPremiumView.as_view()),
     path('statistics/', views.StatisticsView.as_view()),

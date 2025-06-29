@@ -4,6 +4,25 @@ from . import managers
 from django.conf import settings
 
 import os
+class AgreementSession(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+
+    # Section 1: Motivation
+    motivation_choices = models.JSONField()  # list of selected motivations
+    other_motivation = models.TextField(blank=True)
+
+    # Section 2: Confidence Issues
+    has_confidence_issues = models.BooleanField()
+    confidence_issues = models.JSONField(blank=True, null=True)  # list of selected areas
+    other_issues = models.TextField(blank=True)
+
+    # Section 3: Expectations
+    expectations = models.JSONField()  # list of selected expectations
+    other_expectations = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"Agreement Session for {self.user.email}"
 class ConfidenceTestResult(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     score = models.FloatField()

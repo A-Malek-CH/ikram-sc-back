@@ -13,10 +13,16 @@ from .models import ConfidenceTestResult
 from .models import ConfidenceTestResult
 from users import tools
 from users.permissions import IsAdmin, IsNormal
-from .serializers import AuthTokenSerializer, SessionReadSerializer, SettingSerializer
+from .serializers import AuthTokenSerializer, SessionReadSerializer, SettingSerializer, AdminAnswerSerializer, \
+    AdminConfidenceScoreSerializer
 from .serializers import UserSerializer, ProfileSerializer, ProfilePictureSerializer, NotificationSerializer, StageSerializer, QuestionSerializer, SessionSerializer, MessagesSerializer, AnswerSerializer
 import jwt, datetime
 from .models import Explanation, ForgetPasswordCode, Settings, User, VerificationCode, Notification, Stage, Question, Session, Messages, Answer
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status, permissions
+from .models import AgreementSession
+from .serializers import AgreementSessionSerializer
 
 import random
 from django.core.mail import send_mail
@@ -47,7 +53,7 @@ class Login(APIView):
                 'exp': datetime.datetime.utcnow() + datetime.timedelta(days=5)
             }, settings.SECRET_KEY, algorithm='HS256')
             user = User.objects.filter(email=serializer.validated_data['email']).first()
-            return Response({'token': token, 'role': user.role, "name": f"{user.first_name} {user.last_name}", "is_premium": user.is_premium})
+            return Response({'token': token, 'role': "admin" if user.is_superuser else user.role, "name": f"{user.first_name} {user.last_name}", "is_premium": user.is_premium})
         user = User.objects.filter(email=request.data['email']).first()
         if user:
             if not user.is_active:
@@ -55,7 +61,74 @@ class Login(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# in views.py
+class AgreementSessionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        # ✅ Return just a flag to simplify frontend logic
+        if AgreementSession.objects.filter(user=request.user).exists():
+            return Response({"submitted": True})
+        else:
+            return Response({"submitted": False})
+
+    def post(self, request):
+        # Prevent duplicate submission
+        if AgreementSession.objects.filter(user=request.user).exists():
+            return Response({"detail": "Already submitted"}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = AgreementSessionSerializer(data=request.data, context={"request": request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"submitted": True}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class AllAnswersView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        answers = Answer.objects.select_related("session", "question", "session__user").all()
+        data = [
+            {
+                "user": f"{answer.session.user.first_name} {answer.session.user.last_name}",
+                "stage": answer.session.stage.name,
+                "question": answer.question.question,
+                "answer": answer.answer,
+                "timestamp": answer.creation_date,
+            }
+            for answer in answers
+        ]
+        return Response(data, status=200)
+
+
+class AllConfidenceScoresView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        scores = ConfidenceTestResult.objects.select_related("user").all()
+        data = [
+            {
+                "user": f"{score.user.first_name} {score.user.last_name}",
+                "score": score.score,
+                "timestamp": score.created_at,
+            }
+            for score in scores
+        ]
+        return Response(data, status=200)
+class AdminExportView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        answers = Answer.objects.select_related("session", "question", "session__user").all()
+        scores = ConfidenceTestResult.objects.select_related("user").all()
+
+        answer_data = AdminAnswerSerializer(answers, many=True).data
+        score_data = AdminConfidenceScoreSerializer(scores, many=True).data
+
+        return Response({
+            "session_answers": answer_data,
+            "confidence_scores": score_data,
+        })
+
 
 class SubmitConfidenceScoreView(APIView):
     permission_classes = [IsAuthenticated]
