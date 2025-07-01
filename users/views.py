@@ -3,6 +3,11 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import FormParser, MultiPartParser
 from django.http import HttpResponse
+# Add StreamingHttpResponse to your imports
+from django.http import StreamingHttpResponse
+# Add the json library for formatting the stream
+import json
+import time # We'll use this for a tiny delay
 from django.conf import settings
 from rest_framework import parsers, renderers, status
 from rest_framework.views import APIView
@@ -599,6 +604,46 @@ class ResetSessionView(APIView):
         Answer.objects.filter(session=session).delete()
 
         return Response({"message": "Session has been reset."}, status=200)
+def stream_chat_initialization(session):
+    """
+    A generator function that yields explanations and the first question
+    as Server-Sent Events (SSE).
+    """
+    try:
+        stage = session.stage
+
+        # 1. Process and stream explanations if they haven't been sent yet
+        if session.in_explanation:
+            explanations = Explanation.objects.filter(stage=stage).order_by('id')
+            for explanation in explanations:
+                # Process with Gemini API
+                message_text = tools.process_explanation(explanation.explanation)
+                # Save the message to the database
+                msg_obj = Messages.objects.create(session=session, message=message_text, is_user=False)
+                # Serialize the new message object
+                serializer = MessagesSerializer(instance=msg_obj)
+                # Yield the data in SSE format
+                yield f"data: {json.dumps(serializer.data)}\n\n"
+                time.sleep(0.1) # Small delay to ensure messages are sent separately
+
+            # Mark explanations as done
+            session.in_explanation = False
+            session.save()
+
+        # 2. Process and stream the first question if it's the start of the session
+        if session.current_question == 0 and not Messages.objects.filter(session=session, is_user=False, message__icontains="?").exists():
+            question = Question.objects.filter(stage=stage).order_by('order').first()
+            if question:
+                ai_message_text = tools.process_init_question(question.question)
+                msg_obj = Messages.objects.create(session=session, message=ai_message_text, is_user=False)
+                serializer = MessagesSerializer(instance=msg_obj)
+                yield f"data: {json.dumps(serializer.data)}\n\n"
+                time.sleep(0.1)
+
+    except Exception as e:
+        # In case of an error during the stream, send an error message
+        error_data = {"error": f"An error occurred during streaming: {str(e)}"}
+        yield f"data: {json.dumps(error_data)}\n\n"
 
 
 class InitializeChatView(APIView):
@@ -618,34 +663,15 @@ class InitializeChatView(APIView):
         if not session.is_unlocked:
             return Response({'error': 'This stage is locked'}, status=403)
 
+        # If the session is already completed, no need to stream anything.
         if session.is_completed:
-            return Response({'error': 'This stage is already completed'}, status=403)
+            return Response([], status=200)
 
-        stage = session.stage
-        messages = []
-
-        # 1. Send explanations if needed
-        if session.in_explanation:
-            session.in_explanation = False  # Mark explanations as done
-            session.save()
-
-            explanations = Explanation.objects.filter(stage=stage)
-            for explanation in explanations:
-                message = tools.process_explanation(explanation.explanation)
-                msg = Messages.objects.create(session=session, message=message, is_user=False)
-                messages.append(msg)
-
-        # 2. Then send the first question if current_question == 0 and no question message exists yet
-        if session.current_question == 0 and not Messages.objects.filter(session=session, is_user=False,
-                                                                         message__icontains="?").exists():
-            question = Question.objects.filter(stage=stage).order_by('order').first()
-            if question:
-                ai_message = tools.process_init_question(question.question)
-                msg = Messages.objects.create(session=session, message=ai_message, is_user=False)
-                messages.append(msg)
-
-        serializer = MessagesSerializer(instance=messages, many=True)
-        return Response(serializer.data, status=200)
+        # This is the key change: return a StreamingHttpResponse
+        # It calls our new generator function to get the data piece by piece.
+        response = StreamingHttpResponse(stream_chat_initialization(session), content_type='text/event-stream')
+        response['Cache-Control'] = 'no-cache'  # Ensure no caching of the stream
+        return response
 
 
 class ChatView(APIView):
