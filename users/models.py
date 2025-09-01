@@ -4,6 +4,10 @@ from . import managers
 from django.conf import settings
 
 import os
+
+from .rules import ACHIEVEMENT_RULES
+
+
 class AgreementSession(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     submitted_at = models.DateTimeField(auto_now_add=True)
@@ -54,9 +58,15 @@ class User(AbstractUser):
     objects = managers.UserManager()
 
 class Profile(models.Model):
+    SEX_CHOICES = [
+        ("male", "ذكر"),
+        ("female", "أنثى"),
+    ]
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     major = models.CharField(max_length=100, blank=True, null=True, verbose_name="التخصص")
     academic_year = models.CharField(max_length=50, blank=True, null=True, verbose_name="العام الدراسي")
+    sex = models.CharField(max_length=10, choices=SEX_CHOICES, blank=True, null=True, verbose_name="الجنس")
+    bio = models.TextField(blank=True, null=True, verbose_name="نبذة تعريفية")
 
     def __str__(self):
         return self.user.email
@@ -164,3 +174,43 @@ class Answer(models.Model):
 
     def __str__(self):
         return f"Answer for {self.session.user.email} at stage {self.session.stage.name}"
+
+
+from django.db import models
+from django.conf import settings
+
+class Note(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,  # ✅ works with your custom AbstractUser
+        on_delete=models.CASCADE,
+        related_name="notes"
+    )
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.content[:20]}"
+
+from django.db import models
+from django.conf import settings
+
+# users/models.py
+
+class Achievement(models.Model):
+    key = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=200)
+    description = models.TextField()
+    image = models.CharField(max_length=200)  # e.g. "goal_setting.png"
+
+    def __str__(self):
+        return self.name
+
+
+
+class UserAchievement(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="achievements")
+    achievement = models.ForeignKey(Achievement, on_delete=models.CASCADE)
+    unlocked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "achievement")

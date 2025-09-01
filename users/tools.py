@@ -6,12 +6,12 @@ import itertools  # We'll use this for efficient key rotation
 # It's better to load these from environment variables for security,
 # but for a direct answer, we will list them here.
 API_KEYS = [
-    "AIzaSyCeIamx0poSIzL7RexlBhL2FQ_r4cKvaqQ",  # key19
-    "AIzaSyDooCtXo2zyX4LzQXOL2FjjRcqFL6BIHAY",  # key153
-    "AIzaSyB4nXORI4pM1TUJZYC4lPCbP4FZCLoKyG8",  # key23
-    "AIzaSyAz1gG4v_FE1U5M7vaVEDZfcqeyWEsOyVo",  # key54
-    "AIzaSyB9W1P7irTX_QzBaSWqsBYo0CBj0xKKWEQ",  # keytest
-    "AIzaSyAQ5ePnsutm1kNc59BD_orCSWo2-AX_Sgk",  # keytest39
+    "AIzaSyD5_YFVG46EYGzN4EMgw95i3QgVPrIlnpY",  # modlek
+    "AIzaSyCTmX4GQ8A43zQgCtQA8TW_L29WiMKhtrU",  # univ
+    "AIzaSyBkaJX_ce8vs2nwO25Hc8xhxrIAveA-prY",  # key23
+    "AIzaSyBaMosLgsKhuuB5jccDlG99HtyNiBXM2aU",  # chmalek
+    "AIzaSyD9ZwWTbd2Z5CE2C1SwzAOjGajTUVpiugI",  # keytest
+    "AIzaSyC1cQwfr0r3zSpa3BkpTVeUSpLpn0aPwxk",  # malekch
 ]
 
 # --- Step 2: Create a key cycler ---

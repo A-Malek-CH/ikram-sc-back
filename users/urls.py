@@ -1,15 +1,28 @@
-from django.urls import path
+from django.urls import path ,include
 from . import views
 from .views import ChangeProfileView, LatestConfidenceScoreView, AgreementSessionView, AllConfidenceScoresView, \
-    AllAnswersView, AdminExportView
+    AllAnswersView, AdminExportView, AllAchievementsView, MyAchievementsView
 from .views import SubmitConfidenceScoreView
+from rest_framework.routers import DefaultRouter
+from .views import NoteViewSet
+
+from django.conf import settings
+from django.conf.urls.static import static
+router = DefaultRouter()
+router.register(r'notes', NoteViewSet, basename='note')
 
 urlpatterns = [
+
+path("", include(router.urls)),
     path('login/', views.Login.as_view()),
     path('signup/', views.SignupView.as_view()),
+    path("achievements/", AllAchievementsView.as_view(), name="all_achievements"),
+    path("my_achievements/", MyAchievementsView.as_view(), name="my_achievements"),
     path('resend_code/', views.ResendVerificationCode.as_view()),
     path('verify_signup/', views.SignupVerificationView.as_view()),
+
     path('my_profile/', views.MyProfileView.as_view()),
+
     path('change_profile_picture/', views.ChangeProfilePictureView.as_view()),
 path("agreement/", AgreementSessionView.as_view(), name="agreement-session"),
     path('others_profile/<int:id>/', views.OtherProfileView.as_view()),

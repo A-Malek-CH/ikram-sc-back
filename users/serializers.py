@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from .models import User, VerificationCode, Profile, Notification, Settings, ForgetPasswordCode, Stage, Question, Session, Messages, Answer, Explanation
+from .models import User, VerificationCode, Profile, Notification, Settings, ForgetPasswordCode, Stage, Question, \
+    Session, Messages, Answer, Explanation, UserAchievement, Achievement
+from .models import User, VerificationCode, Profile, Notification, Settings, ForgetPasswordCode, Stage, Question, Session, Messages, Answer, Explanation, Note
 
 from rest_framework import serializers
 from .models import AgreementSession
@@ -108,7 +110,7 @@ class VerificationCodeSerializer(serializers.ModelSerializer): # odn't need it
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ['major', 'academic_year']
+        fields = ['major', 'academic_year','sex', 'bio']
         extra_kwargs = {
             'user': {'read_only': True},
         }
@@ -412,3 +414,47 @@ class AdminConfidenceScoreSerializer(serializers.ModelSerializer):
 
     def get_user(self, obj):
         return f"{obj.user.first_name} {obj.user.last_name}"
+class NoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Note
+        fields = ["id", "content", "created_at"]
+        read_only_fields = ["id", "created_at"]
+class AchievementSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Achievement
+        fields = ["id", "key", "name", "description", "image_url"]
+
+    def get_image_url(self, obj):
+        request = self.context.get("request")
+        img = getattr(obj, "image", None)
+
+        # CASE 1: ImageField/FileField
+        if hasattr(img, "url"):
+            url = img.url
+
+        # CASE 2: plain string (filename or absolute URL)
+        elif isinstance(img, str) and img:
+            if img.startswith("http://") or img.startswith("https://"):
+                url = img
+            else:
+                # ✅ your files are under /media/achievements/
+                url = f"/media/achievements/{img.lstrip('/')}"
+
+        else:
+            return None
+
+        # Make absolute if needed
+        if request and not (url.startswith("http://") or url.startswith("https://")):
+            return request.build_absolute_uri(url)
+        return url
+
+
+class UserAchievementSerializer(serializers.ModelSerializer):
+    achievement = AchievementSerializer(read_only=True)
+    awarded_at = serializers.DateTimeField(source="unlocked_at", read_only=True)
+
+    class Meta:
+        model = UserAchievement
+        fields = ["achievement", "awarded_at"]

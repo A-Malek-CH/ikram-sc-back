@@ -2,10 +2,25 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import FormParser, MultiPartParser
+# users/views.py
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+
+from .models import Achievement, UserAchievement
+from .serializers import AchievementSerializer
+
 from django.http import HttpResponse
 # Add StreamingHttpResponse to your imports
 from django.http import StreamingHttpResponse
 # Add the json library for formatting the stream
+from rest_framework import viewsets, permissions
+from .models import Note, UserAchievement, Achievement
+from .serializers import NoteSerializer, UserAchievementSerializer, AchievementSerializer
+from rest_framework import viewsets, permissions
+from .models import Note
+from .serializers import NoteSerializer
+
 import json
 import time # We'll use this for a tiny delay
 from django.conf import settings
@@ -793,3 +808,33 @@ class FillFormView(APIView):
         questions = Question.objects.filter(stage=session.stage).order_by('order')
         serializer = QuestionSerializer(instance=questions, many=True)
         return Response(data=serializer.data, status=200)
+
+
+class NoteViewSet(viewsets.ModelViewSet):
+    serializer_class = NoteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Note.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+class AllAchievementsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = Achievement.objects.all().order_by("id")
+        data = AchievementSerializer(qs, many=True, context={"request": request}).data
+        return Response(data, status=200)
+
+class MyAchievementsView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        qs = (
+            UserAchievement.objects
+            .filter(user=request.user)
+            .select_related("achievement")
+            .order_by("-unlocked_at")
+        )
+        data = UserAchievementSerializer(qs, many=True, context={"request": request}).data
+        return Response(data, status=200)
