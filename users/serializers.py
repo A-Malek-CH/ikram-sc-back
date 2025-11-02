@@ -428,39 +428,14 @@ class AchievementSerializer(serializers.ModelSerializer):
         fields = ["id", "key", "name", "description", "image", "image_url"]
 
     def get_image_url(self, obj):
-        """
-        Build a full absolute URL for achievement images.
-        Handles both /static/... and /media/... paths.
-        """
-        request = self.context.get("request")
-        img = getattr(obj, "image", None)
-        if not img:
-            return None
+    base_url = "https://ikram-sc-back.onrender.com"
+    img = getattr(obj, "image", None)
+    if not img:
+        return None
+    if img.startswith("http"):
+        return img
+    return f"{base_url}/static/{img.lstrip('/')}"
 
-        # CASE 1: Django ImageField/FileField with .url attribute
-        if hasattr(img, "url"):
-            url = img.url
-
-        # CASE 2: plain string (filename or relative path)
-        elif isinstance(img, str):
-            if img.startswith("http://") or img.startswith("https://"):
-                url = img
-            else:
-                # normalize path — handle both static and media
-                if img.startswith("static/") or "/static/" in img:
-                    url = f"/static/{img.split('static/')[-1]}"
-                elif img.startswith("media/") or "/media/" in img:
-                    url = f"/media/{img.split('media/')[-1]}"
-                else:
-                    # default to static since you store badges there
-                    url = f"/static/achievements/{img.lstrip('/')}"
-        else:
-            return None
-
-        # Make it absolute
-        if request and not url.startswith(("http://", "https://")):
-            return request.build_absolute_uri(url)
-        return url
 
 
 class UserAchievementSerializer(serializers.ModelSerializer):
