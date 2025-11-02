@@ -200,11 +200,10 @@ class Achievement(models.Model):
     key = models.CharField(max_length=100, unique=True)
     name = models.CharField(max_length=200)
     description = models.TextField()
-    image = models.CharField(max_length=200)  # e.g. "goal_setting.png"
+    image = models.CharField(max_length=200)  # store a relative static path
 
     def __str__(self):
         return self.name
-
 
 
 class UserAchievement(models.Model):
@@ -214,3 +213,4 @@ class UserAchievement(models.Model):
 
     class Meta:
         unique_together = ("user", "achievement")
+
