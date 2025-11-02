@@ -6,12 +6,12 @@ import itertools  # We'll use this for efficient key rotation
 # It's better to load these from environment variables for security,
 # but for a direct answer, we will list them here.
 API_KEYS = [
-    "AIzaSyD5_YFVG46EYGzN4EMgw95i3QgVPrIlnpY",  # modlek
-    "AIzaSyCTmX4GQ8A43zQgCtQA8TW_L29WiMKhtrU",  # univ
-    "AIzaSyBkaJX_ce8vs2nwO25Hc8xhxrIAveA-prY",  # key23
-    "AIzaSyBaMosLgsKhuuB5jccDlG99HtyNiBXM2aU",  # chmalek
-    "AIzaSyD9ZwWTbd2Z5CE2C1SwzAOjGajTUVpiugI",  # keytest
-    "AIzaSyC1cQwfr0r3zSpa3BkpTVeUSpLpn0aPwxk",  # malekch
+    "AIzaSyD9lXEf6MTUlxGxVQDinSs6RQYeDbUMONA",  # modlek
+    "AIzaSyAAt0jH-zUoTN9qJxB7D5AdKW-Ws04Jrbk",  # univ
+    "AIzaSyCGqFyOaIuNYGHCB2eih_kwNTlnMhKICE0",  # key23
+    "AIzaSyAe8SiZEP1Y-BGRMkEELaAXsUdfq9JJ4q0",  # chmalek
+    "AIzaSyCMqFWXOqJ9EoK0fclEZc1UO0gsCXczNIw",  # keytest
+    "AIzaSyBxmr6Ft6lZWQ-E6ll2_GpapRAKkZOBnUs",  # malekch
 ]
 
 # --- Step 2: Create a key cycler ---
@@ -31,7 +31,7 @@ def get_model():
     genai.configure(api_key=next_key)
 
     # Return a new model instance configured with this key
-    model = genai.GenerativeModel(model_name="models/gemini-1.5-flash")
+    model = genai.GenerativeModel(model_name="models/gemini-2.5-flash-lite")
     return model
 
 
