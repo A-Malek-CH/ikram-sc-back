@@ -9,6 +9,8 @@ from rest_framework.permissions import IsAuthenticated
 
 from .models import Achievement, UserAchievement
 from .serializers import AchievementSerializer
+import resend
+from django.conf import settings
 
 from django.http import HttpResponse
 # Add StreamingHttpResponse to your imports
@@ -53,6 +55,19 @@ from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.contrib.auth.password_validation import validate_password
 
+def send_resend_email(to_email, subject, html_message):
+    """Send transactional email via Resend API"""
+    try:
+        resend.api_key = settings.RESEND_API_KEY
+        resend.Emails.send({
+            "from": "NeoLAB <onboarding@resend.dev>",  # You can change this later to your domain
+            "to": [to_email],
+            "subject": subject,
+            "html": html_message,
+        })
+        print(f"✅ Email sent successfully to {to_email}")
+    except Exception as e:
+        print(f"❌ Email sending failed for {to_email}: {e}")
 
 
 class Login(APIView):
@@ -204,7 +219,7 @@ class SignupView(APIView):
     </html>
     """
 
-        send_mail( subject, message, email_from, recipient_list, html_message=html_message, fail_silently=False)
+        send_resend_email(data['email'], subject, html_message)
         return Response({'email': data['email'], "message": 'A verification code has been sent to your email'}, status=200)
 
 class ResendVerificationCode(APIView): 
@@ -240,7 +255,7 @@ class ResendVerificationCode(APIView):
     </html>
     """
 
-        send_mail( subject, message, email_from, recipient_list, html_message=html_message, fail_silently=False)
+        send_resend_email(user.email, subject, html_message)
         return Response({'email': user.email, "message": 'A verification code has been sent to your email'}, status=200)
 
 class SignupVerificationView(APIView):  
@@ -522,7 +537,7 @@ class ForgetPasswordView(APIView):
 </html>
     """
 
-        send_mail( subject, message, email_from, recipient_list, html_message=html_message, fail_silently=False)
+        send_resend_email(user.email, subject, html_message)
         return Response({'email': user.email, "message": 'A verification code has been sent to your email'}, status=200)
 
 class ForgetPasswordVerificationView(APIView):  
