@@ -1,6 +1,5 @@
 # Django
 db.sqlite3
-media/
 .env
 
 # Python cache
