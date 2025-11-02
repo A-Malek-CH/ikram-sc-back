@@ -13,7 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY SETTINGS
 # ------------------------------------------------------------
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-%3$i&rwzuokkeckh3t0nm!u4*7o4xx%yi620o@&&*^k*k@ihrm')
-
+RESEND_API_KEY = os.getenv("re_UVUr26zs_9RGqN9RNxUAktNvXjCYQjnTN")
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
