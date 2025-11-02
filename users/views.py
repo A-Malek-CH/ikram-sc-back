@@ -199,7 +199,7 @@ class SignupView(APIView):
         verificationCode = VerificationCode(code=code, user=instance)
         verificationCode.save()
         data = serializer.validated_data
-        subject = f'welcome to Tiqati by Ikram-sc }'
+        subject = 'welcome to Tiqati by Ikram-sc '
         message = f'Hi {data["first_name"]} {data["last_name"]} , thank you for registering in {settings.APP_NAME}, your verification code is: {code}'
         email_from = settings.EMAIL_HOST_USER
         recipient_list = (data['email'],)
