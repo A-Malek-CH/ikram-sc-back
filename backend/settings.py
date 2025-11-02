@@ -13,7 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY SETTINGS
 # ------------------------------------------------------------
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-%3$i&rwzuokkeckh3t0nm!u4*7o4xx%yi620o@&&*^k*k@ihrm')
-RESEND_API_KEY = os.getenv("re_UVUr26zs_9RGqN9RNxUAktNvXjCYQjnTN")
+RESEND_API_KEY = "re_UVUr26zs_9RGqN9RNxUAktNvXjCYQjnTN"
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
@@ -130,12 +130,6 @@ REST_FRAMEWORK = {
 # ------------------------------------------------------------
 # EMAIL SETTINGS (⚠️ Move credentials to env vars before production)
 # ------------------------------------------------------------
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_USE_TLS = True
-EMAIL_PORT = 587
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'walidtest24@gmail.com')
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'oirwhponowplmhna')
 
 # ------------------------------------------------------------
 # APP SETTINGS
