@@ -60,7 +60,7 @@ def send_resend_email(to_email, subject, html_message):
     try:
         resend.api_key = settings.RESEND_API_KEY
         resend.Emails.send({
-            "from": "Thiqati<noreply@ikram.xyz>", ,  # You can change this later to your domain
+            "from": "Thiqati <noreply@ikram.xyz>" ,  # You can change this later to your domain
             "to": [to_email],
             "subject": subject,
             "html": html_message,
