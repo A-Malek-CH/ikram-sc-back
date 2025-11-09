@@ -77,16 +77,27 @@ def process_init_question(message):
 
 
 def process_answer(message, question):
-    model = get_model()  # Get a model with a new key
-    prompt = f"""Evaluate the following student answer:
-    '{message}'
-    to the question:
-    '{question}'
+    model = get_model()
+    prompt = f"""
+قيّم إجابة الطالب التالية:
+الإجابة: '{message}'
+على السؤال:
+'{question}'
 
-    Provide a brief evaluation of the answer, indicating if it is correct, partially correct, or incorrect.
-    If incorrect or partially correct, briefly explain why. remember you have to asnwser just in arabic language , and don't include any parenthetical phrases:
-    """
+التعليمات:
+- استخدم اللغة العربية الفصحى فقط.
+- لا تستخدم أي تنسيق خاص أو أقواس.
+- ابدأ بذكر الجوانب الإيجابية في إجابة الطالب.
+- بعد ذلك، قدّم تصحيحًا أو توضيحًا بسيطًا إذا لزم الأمر، ولكن بأسلوب مشجع ولطيف.
+- لا تقل صراحة إن الإجابة غير صحيحة.
+- استخدم أسلوبًا يحفّز الطالب على الفهم والتفكير دون إحباط.
+- لا تضف مقدمات أو عبارات ترحيبية او ختامية.
+"""
     response = model.generate_content(prompt)
-    # Simple heuristic, can be improved
-    is_correct = "correct" in response.text.lower()
-    return is_correct, response.text
+    text = response.text.strip()
+
+    # لا نحكم الآن على "صحيحة أو غير صحيحة" صراحةً
+    # ولكن يمكن استخدام تحليل بسيط لاكتشاف إشارات إيجابية
+    is_correct = any(word in text for word in ["جيد", "صحيح", "إجابة رائعة", "مفهوم", "أحسنت"])
+
+    return is_correct, text
